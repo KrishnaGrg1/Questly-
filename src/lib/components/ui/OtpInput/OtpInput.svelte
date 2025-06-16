@@ -1,78 +1,67 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
+	export let length = 6;
 
-    export let length = 6;
-    let otp: string[] = Array(length).fill('');
-    let inputs: HTMLInputElement[] = [];
+	const dispatch = createEventDispatcher();
+	let values: string[] = Array(length).fill('');
+	let inputs: HTMLInputElement[] = [];
 
-    // Focus first input on mount
-    onMount(() => {
-        if (inputs[0]) inputs[0].focus();
-    });
+	// Move focus to next or previous input
+	const focusInput = (index: number) => {
+		if (index >= 0 && index < length) {
+			inputs[index]?.focus();
+		}
+	};
 
-    const handleInput = (e: Event, index: number) => {
-        const target = e.target as HTMLInputElement;
-        let value = target.value;
+	// Handle key input
+	const handleInput = (e: Event, index: number) => {
+		const input = e.target as HTMLInputElement;
+		const value = input.value.replace(/\D/g, ''); // Only digits
 
-        otp = [...otp];
-        otp[index] = value.slice(-1); // Only take last character
-        target.value = otp[index];
+		if (value.length > 1) {
+			// Handle paste or multiple characters
+			const chars = value.split('');
+			for (let i = 0; i < chars.length && index + i < length; i++) {
+				values[index + i] = chars[i];
+			}
+			focusInput(index + chars.length);
+		} else {
+			values[index] = value;
+			if (value && index < length - 1) {
+				focusInput(index + 1);
+			}
+		}
 
-        // Move to next input
-        if (value && index < length - 1) {
-            inputs[index + 1]?.focus();
-        }
+		if (values.every(v => v.length === 1)) {
+			dispatch('complete', values.join(''));
+		}
+	};
 
-        dispatch('complete', otp.join(''));
-    };
+	// Handle backspace to move focus
+	const handleKeyDown = (e: KeyboardEvent, index: number) => {
+		if (e.key === 'Backspace' && values[index] === '' && index > 0) {
+			values[index - 1] = '';
+			focusInput(index - 1);
+		}
+	};
 
-    const handleKeyDown = (e: KeyboardEvent, index: number) => {
-        const target = e.target as HTMLInputElement;
-
-        // Backspace and previous input
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            inputs[index - 1]?.focus();
-        }
-    };
-
-    const handlePaste = (e: ClipboardEvent) => {
-        e.preventDefault();
-        const data = e.clipboardData.getData('text').slice(0, length);
-        for (let i = 0; i < length; i++) {
-            if (i < data.length && /\d/.test(data[i])) {
-                otp[i] = data[i];
-                inputs[i]?.focus();
-            } else {
-                break;
-            }
-        }
-    };
-
-    $: joinedOtp = otp.join('');
-
+	onMount(() => {
+		focusInput(0);
+	});
 </script>
 
-<div class="flex justify-center gap-3 mb-4" on:paste={handlePaste}>
-    {#each otp as _, index (index)}
-        <input
-            bind:this={inputs[index]}
-            type="text"
-            inputmode="numeric"
-            maxlength="1"
-            class="w-12 h-14 text-center text-xl font-mono bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:border-indigo-500 outline-none transition-all duration-200"
-            on:input={(e) => handleInput(e, index)}
-            on:keydown={(e) => handleKeyDown(e, index)}
-        />
-    {/each}
+<div class="flex justify-center gap-2">
+	{#each Array(length) as _, i}
+		<input
+	
+			class="w-12 h-12 text-center text-lg rounded-md bg-slate-800 text-white border border-slate-700 focus:ring-2 focus:ring-cyan-500 focus:outline-none font-mono"
+			type="text"
+			maxlength="1"
+			inputmode="numeric"
+			pattern="[0-9]*"
+			autocomplete="one-time-code"
+			on:input={(e) => handleInput(e, i)}
+			on:keydown={(e) => handleKeyDown(e, i)}
+		/>
+	{/each}
 </div>
-
-<!-- Optional hidden input for form submission -->
-<input type="hidden" name="otp" value={joinedOtp} />
-
-<style>
-    input::-webkit-outer-spin-button,
-    input::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-</style>
