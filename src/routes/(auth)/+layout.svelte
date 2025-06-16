@@ -9,5 +9,5 @@
 	<main class="container">
 		{@render children?.()}
 	</main>
-	<Footer />
+	<!-- <Footer /> -->
 </div>
